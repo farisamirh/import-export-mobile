@@ -1,0 +1,108 @@
+/* ===== Mobile adjustments ===== */
+body {
+  margin:0;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  background:#b6e1ff;
+  color:#222;
+}
+
+.container {
+  max-width:600px;
+  margin:16px auto;
+  padding:16px;
+  background:rgba(255,255,255,0.95);
+  border-radius:12px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.12);
+}
+
+/* Buttons full-width */
+button {
+  background:#0077cc;
+  color:#fff;
+  border:none;
+  padding:10px 14px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+  margin:6px 0;
+  width:100%;
+}
+button:hover { filter: brightness(0.95); }
+
+/* Trade panel inputs */
+.trade-panel .row {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+label { font-size:0.95rem; }
+input[type=number], select {
+  padding:8px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  width:100%;
+}
+
+/* Progress bar */
+.progress-container {
+  width:100%;
+  background:#eee;
+  border-radius:10px;
+  height:22px;
+  margin:12px 0;
+  overflow:hidden;
+}
+#progressBar {
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:600;
+  transition: width .4s ease;
+}
+
+/* History table */
+#historyTable, #ratesTable {
+  width:100%;
+  border-collapse:collapse;
+  font-size:0.9rem;
+}
+#historyTable th, #historyTable td, #ratesTable th, #ratesTable td {
+  padding:6px 8px;
+  border:1px solid #ddd;
+  text-align:center;
+}
+.profit { color:#18a558; font-weight:700; }
+.loss { color:#e74c3c; font-weight:700; }
+.task-row { background:#eaf6ff; font-weight:700; }
+
+/* Penguin mascot */
+#penguinContainer img {
+  width:80px;
+  cursor:pointer;
+}
+.penguin-tip {
+  margin-top:8px;
+  background:rgba(0,0,0,0.8);
+  color:#fff;
+  padding:10px;
+  border-radius:8px;
+  font-size:0.9rem;
+  text-align:left;
+  max-width:220px;
+  margin:auto;
+}
+
+/* --- Mobile responsive adjustments --- */
+@media screen and (max-width: 600px) {
+  .container { padding: 12px; margin: 12px; }
+  .top-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .trade-panel .row, #optionsContainer { flex-direction: column; gap: 8px; }
+  input, select, button { width: 100%; font-size: 1rem; }
+  table, th, td { font-size: 0.9rem; }
+  #balanceChart, #resultsChart { width: 100% !important; }
+  #penguinContainer { width: 60px; height: auto; right: 10px; bottom: 10px; }
+}

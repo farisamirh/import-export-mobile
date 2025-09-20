@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trade Game</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="top-row">
+      <h1>Day <span id="dayNumber">1</span> / 7</h1>
+      <p class="muted">Balance: RM <span id="balanceDisplay">5000</span></p>
+    </div>
+
+    <div class="progress-container">
+      <div id="progressBar"></div>
+    </div>
+
+    <div class="panel trade-panel">
+      <label>
+        Trade Type
+        <select id="tradeType">
+          <option value="import">Import</option>
+          <option value="export">Export</option>
+        </select>
+      </label>
+      <label>
+        Country
+        <select id="countrySelect"></select>
+      </label>
+      <label>
+        Item
+        <select id="itemSelect"></select>
+      </label>
+      <label>
+        Quantity
+        <input type="number" id="quantityInput" min="1" value="1">
+      </label>
+      <p class="calc" id="calcResult"></p>
+      <button id="confirmBtn">✅ Confirm Trade</button>
+      <button id="showRatesBtn">📊 Show Rates</button>
+      <div id="ratesTableContainer" style="display:none; overflow-x:auto;">
+        <table id="ratesTable"></table>
+      </div>
+      <button id="proceedTaskBtn">➡️ Proceed to Daily Task</button>
+    </div>
+
+    <div class="panel">
+      <h3>History</h3>
+      <div style="overflow-x:auto;">
+        <table id="historyBody"></table>
+      </div>
+    </div>
+
+    <div class="panel" id="rulesBox" style="display:none;">
+      <p>Instructions: Import reduces RM balance, Export adds RM. Use the trade panel above.</p>
+    </div>
+    <button id="toggleRulesBtn">Show Instructions</button>
+    <button id="resetBtn">🔄 Reset Game</button>
+
+    <canvas id="balanceChart" height="200"></canvas>
+  </div>
+
+  <div id="penguinContainer">
+    <img src="penguin.webp" id="penguinImg" alt="Penguin mascot">
+    <div class="penguin-tip" id="penguinTip"></div>
+  </div>
+
+  <script src="gameScript.js"></script>
+</body>
+</html>

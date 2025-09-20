@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>🏆 Final Results</h2>
+
+    <p>Final Balance: <span id="finalBalance"></span></p>
+    <p id="netPL"></p>
+
+    <h3>📜 Trade & Task History</h3>
+    <div style="overflow-x:auto;">
+      <table id="historyTable"></table>
+    </div>
+
+    <h3>📊 Balance Over Time</h3>
+    <canvas id="resultsChart" height="120"></canvas>
+
+    <div id="penguinContainer" style="margin-top:12px; text-align:center;">
+      <img id="penguinMascot" src="penguin.webp" alt="Penguin mascot">
+      <div id="penguinFinalTip" class="penguin-tip"></div>
+    </div>
+
+    <button onclick="location.href='index.html'" style="margin-top:20px;">🔁 Play Again</button>
+  </div>
+
+  <script src="resultsScript.js"></script>
+</body>
+</html>
