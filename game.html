@@ -9,63 +9,97 @@
 </head>
 <body>
   <div class="container">
-    <div class="top-row">
-      <h1>Day <span id="dayNumber">1</span> / 7</h1>
-      <p class="muted">Balance: RM <span id="balanceDisplay">5000</span></p>
+
+    <header class="top-row">
+      <div>
+        <h1>Import & Export — Trading Hub</h1>
+        <p class="muted">Day <span id="dayNumber">1</span>  •  Balance: RM <span id="balanceDisplay">0</span></p>
+      </div>
+      <div class="top-buttons">
+        <button id="resetBtn">Start New Game</button>
+        <button id="toggleRulesBtn">Show Instructions</button>
+      </div>
+    </header>
+
+    <!-- In-game instructions -->
+    <div id="rulesBox" style="display:none;" class="panel">
+      <h3>📜 Game Instructions</h3>
+      <ul>
+        <li>You start with RM 5000.</li>
+        <li>Each day you can Import/Export up to 3 times per day.</li>
+        <li>Exchange rates change daily.</li>
+        <li>Each day has a unique task scenario with different outcomes.</li>
+        <li>Game lasts 7 days → then see your results.</li>
+        <li>Extra note: click the penguin in the corner!</li>
+      </ul>
     </div>
 
+    <!-- progress bar -->
     <div class="progress-container">
-      <div id="progressBar"></div>
+      <div id="progressBar">Day <span id="progressText">1</span> / 7</div>
     </div>
 
-    <div class="panel trade-panel">
-      <label>
-        Trade Type
-        <select id="tradeType">
-          <option value="import">Import</option>
-          <option value="export">Export</option>
-        </select>
-      </label>
-      <label>
-        Country
-        <select id="countrySelect"></select>
-      </label>
-      <label>
-        Item
-        <select id="itemSelect"></select>
-      </label>
-      <label>
-        Quantity
-        <input type="number" id="quantityInput" min="1" value="1">
-      </label>
-      <p class="calc" id="calcResult"></p>
-      <button id="confirmBtn">✅ Confirm Trade</button>
-      <button id="showRatesBtn">📊 Show Rates</button>
-      <div id="ratesTableContainer" style="display:none; overflow-x:auto;">
+    <section class="panel trade-panel">
+      <h2>Trade</h2>
+
+      <div class="row">
+        <label>Action
+          <select id="tradeType">
+            <option value="import">Import</option>
+            <option value="export">Export</option>
+          </select>
+        </label>
+
+        <label>Country
+          <select id="countrySelect"></select>
+        </label>
+
+        <label>Item
+          <select id="itemSelect"></select>
+        </label>
+
+        <label>Quantity
+          <input id="quantityInput" type="number" min="1" value="1">
+        </label>
+      </div>
+
+      <p id="calcResult" class="calc"></p>
+      <p id="tradeCounter">Trades today: 0 / 3</p>
+
+      <div class="row">
+        <button id="confirmBtn">Confirm (Import/Export)</button>
+        <button id="showRatesBtn">Show Today's Exchange Rates</button>
+        <button id="proceedTaskBtn">Proceed to Daily Task</button>
+      </div>
+
+      <div id="ratesTableContainer" class="rates" style="display:none;">
+        <h4>Exchange Rates & Example Prices</h4>
         <table id="ratesTable"></table>
       </div>
-      <button id="proceedTaskBtn">➡️ Proceed to Daily Task</button>
-    </div>
 
-    <div class="panel">
-      <h3>History</h3>
-      <div style="overflow-x:auto;">
-        <table id="historyBody"></table>
-      </div>
-    </div>
+    </section>
 
-    <div class="panel" id="rulesBox" style="display:none;">
-      <p>Instructions: Import reduces RM balance, Export adds RM. Use the trade panel above.</p>
-    </div>
-    <button id="toggleRulesBtn">Show Instructions</button>
-    <button id="resetBtn">🔄 Reset Game</button>
+    <section class="panel chart-panel">
+      <h3>Balance over time</h3>
+      <canvas id="balanceChart" height="120"></canvas>
+    </section>
 
-    <canvas id="balanceChart" height="200"></canvas>
+    <section class="panel history-panel">
+      <h3>Trade & Task History</h3>
+      <table id="historyTable">
+        <thead>
+          <tr><th>Day</th><th>Action</th><th>Item / Scenario</th><th>Country</th><th>Qty</th><th>Change</th></tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </section>
+
   </div>
 
+  <!-- penguin mascot -->
   <div id="penguinContainer">
-    <img src="penguin.webp" id="penguinImg" alt="Penguin mascot">
-    <div class="penguin-tip" id="penguinTip"></div>
+    <img id="penguinImg" src="penguin.webp" alt="Penguin mascot">
+    <div id="penguinTip" class="penguin-tip" style="display:none"></div>
   </div>
 
   <script src="gameScript.js"></script>
