@@ -1,7 +1,9 @@
 // gameScript.js
-// Full trading UI logic for game.html with daily tasks
+// Full trading UI logic for game.html
+// IDs used in HTML must match exactly
 
 (function(){
+  // DOM helper
   const $ = id => document.getElementById(id);
 
   // --- persistent state ---
@@ -10,11 +12,16 @@
   let balance = parseFloat(localStorage.getItem("balance")) || 5000;
   let tradeHistoryHTML = localStorage.getItem("tradeHistory") || "";
   let balanceOverTime = JSON.parse(localStorage.getItem("balanceOverTime")) || [balance];
+  let tradeCount = parseInt(localStorage.getItem("tradeCountForDay" + day)) || 0;
+  const maxTrades = 3;
 
-  // --- exchangeRates representation ---
+  // --- exchangeRates representation:
+  // exchangeRates[country] = number of foreign currency units equal to 1 RM
+  // Example: exchangeRates["Japan"] = 33 means 1 RM = 33 JPY
   let exchangeRates = JSON.parse(localStorage.getItem("exchangeRatesForDay" + day)) || null;
 
-  // --- items ---
+  // --- items with example foreign-currency prices per unit (price is in foreign currency units) ---
+  // For simplicity each item price is interpreted as price *in the country's currency*.
   const importItems = [
     { name: "Electronics", basePrice: 120 },
     { name: "Machinery", basePrice: 350 },
@@ -50,88 +57,21 @@
   const toggleRulesBtn = $("toggleRulesBtn");
   const penguinImg = $("penguinImg");
   const penguinTip = $("penguinTip");
+  const tradeCounterEl = $("tradeCounter");
+
+
+  // chart
+  let chartInstance = null;
   const chartCanvas = $("balanceChart");
 
-  let chartInstance = null;
-
-  // --- daily task pool ---
-  const fullTaskPool = [
-    {
-      scenario: "Local supplier raises prices for construction materials.",
-      options: [
-        { text: "Import cheaper from Thailand", effect: 200, message: "Imported cheaper materials. Profit RM200." },
-        { text: "Keep buying local", effect: -100, message: "Paid higher local prices. Loss RM100." },
-        { text: "Negotiate with supplier", effect: 50, message: "Negotiated a small discount. Profit RM50." }
-      ]
-    },
-    {
-      scenario: "Logistics strike delays shipping.",
-      options: [
-        { text: "Pay extra for priority shipping", effect: -150, message: "Paid priority shipping. Loss RM150." },
-        { text: "Wait for strike to end", effect: 0, message: "Waited it out. No change." },
-        { text: "Use alternative land transport", effect: -50, message: "Alternative transport used. Loss RM50." }
-      ]
-    },
-    {
-      scenario: "Unexpected demand surge for exports.",
-      options: [
-        { text: "Increase exports immediately", effect: 250, message: "Sold more products. Profit RM250." },
-        { text: "Maintain current levels", effect: 0, message: "No change in balance." },
-        { text: "Focus on local market", effect: -50, message: "Lost potential profit. Loss RM50." }
-      ]
-    },
-    {
-    scenario: "A sudden demand for your exported Palm Oil arises in India.",
-    options: [
-      { text: "Accept the deal immediately", effect: 500, message: "You sold Palm Oil quickly at a good price!" },
-      { text: "Negotiate for higher price", effect: 300, message: "You negotiated, but it delayed the deal and earned less." }
-    ]
-  },
-  {
-    scenario: "Your machinery import shipment is delayed due to customs.",
-    options: [
-      { text: "Pay extra to speed up delivery", effect: -400, message: "The shipment arrived faster but cost you more." },
-      { text: "Wait patiently for the shipment", effect: 0, message: "No extra cost, but your project is delayed." }
-    ]
-  },
-  {
-    scenario: "A fire in a local chemical factory reduces supply.",
-    options: [
-      { text: "Buy chemicals from an alternate supplier", effect: -200, message: "You found a supplier but paid a higher price." },
-      { text: "Skip chemical purchase this day", effect: 0, message: "You saved money but your production is slowed." }
-    ]
-  },
-  {
-    scenario: "High demand for textiles in Germany.",
-    options: [
-      { text: "Export all available textiles", effect: 400, message: "Textiles exported successfully!" },
-      { text: "Export only half", effect: 200, message: "Partial export reduces immediate profit." }
-    ]
-  },
-  {
-    scenario: "Government announces new export tax on rubber.",
-    options: [
-      { text: "Sell rubber before tax applies", effect: 300, message: "Quick sale helped avoid extra costs!" },
-      { text: "Hold rubber hoping price increases", effect: -150, message: "Price dropped, costing you money." }
-    ]
-  },
-  {
-    scenario: "Unexpected rise in car import fees.",
-    options: [
-      { text: "Proceed with import", effect: -500, message: "You paid higher fees for the imported cars." },
-      { text: "Cancel import for today", effect: 0, message: "No cars imported, saved money." }
-    ]
-  },
-  {
-    scenario: "Local rice harvest is abundant, prices drop.",
-    options: [
-      { text: "Export rice to USA anyway", effect: 100, message: "You made a small profit despite lower prices." },
-      { text: "Hold rice for better prices", effect: 0, message: "No profit today, waiting for market recovery." }
-    ]
+  // --- update trade counter display ---
+  function updateTradeCounter() {
+  if (tradeCounterEl) {
+    tradeCounterEl.textContent = `Trades today: ${tradeCount} / ${maxTrades}`;
   }
-];
+}
 
-  // --- generate daily exchange rates ---
+  // --- utility: generate new daily exchange rates snapshot ---
   function createDailyExchangeRates() {
     const rates = {
       China: { rate: parseFloat((1.5 + Math.random()*0.4).toFixed(3)), currency: "CNY" },
@@ -143,21 +83,13 @@
     return rates;
   }
 
+  // ensure daily rates exist (persisted for the day so it doesn't change mid-day)
   if (!exchangeRates) {
     exchangeRates = createDailyExchangeRates();
     localStorage.setItem("exchangeRatesForDay" + day, JSON.stringify(exchangeRates));
   }
 
-  // --- seed chosen tasks ---
-  function seedChosenTasks() {
-    if (!localStorage.getItem("chosenScenarios")) {
-      const shuffled = [...fullTaskPool].sort(() => 0.5 - Math.random());
-      const chosen = shuffled.slice(0, MAX_DAYS);
-      localStorage.setItem("chosenScenarios", JSON.stringify(chosen));
-    }
-  }
-
-  // --- populate selects ---
+  // --- populate country select and items ---
   function populateCountries() {
     if (!countrySelect) return;
     countrySelect.innerHTML = "";
@@ -182,7 +114,9 @@
     updateCalc();
   }
 
-  // --- quick calculation ---
+  // --- quick calculation
+  // foreignTotal = basePrice * qty (in that country's currency)
+  // converted RM = foreignTotal / (1 RM = rate foreign)  => RM = foreignTotal / rate
   function updateCalc() {
     const qty = parseInt(quantityInput.value) || 0;
     const itemName = itemSelect.value;
@@ -202,50 +136,73 @@
     return { foreignTotal, rmTotal, currency: rateObj.currency };
   }
 
-  // --- confirm trade ---
-  function onConfirmTrade() {
-    const qty = parseInt(quantityInput.value) || 0;
-    const itemName = itemSelect.value;
-    const country = countrySelect.value;
-    if (!qty || qty <= 0) { alert("Enter a valid quantity."); return; }
-    if (!itemName || !country) { alert("Choose item and country."); return; }
-
-    const list = tradeTypeEl.value === "import" ? importItems : exportItems;
-    const item = list.find(i => i.name === itemName);
-    const rateObj = exchangeRates[country];
-    const foreignTotal = item.basePrice * qty;
-    const rmTotal = parseFloat((foreignTotal / rateObj.rate).toFixed(2));
-
-    if (tradeTypeEl.value === "import") {
-      if (rmTotal > balance) { alert("Not enough balance for this import."); return; }
-      balance -= rmTotal;
-    } else {
-      balance += rmTotal;
-    }
-
-    const isProfit = tradeTypeEl.value === "export";
-    const sign = isProfit ? "+" : "-";
-    const cls = isProfit ? "profit" : "loss";
-    tradeHistoryHTML += `<tr class="trade-row"><td>${day}</td><td>${tradeTypeEl.value}</td><td>${itemName}</td>
-      <td>${country}</td><td>${qty}</td><td class="${cls}">${sign}RM ${rmTotal.toFixed(2)}</td></tr>`;
-
-    balanceOverTime.push(balance);
-    localStorage.setItem("balance", balance.toString());
-    localStorage.setItem("tradeHistory", tradeHistoryHTML);
-    localStorage.setItem("balanceOverTime", JSON.stringify(balanceOverTime));
-    renderHistory();
-    renderChart();
-    updateCalc();
-    flashBalance();
+  // --- update trade counter display
+  function updateTradeCounter() {
+    if (!tradeCounterEl) return;
+    tradeCounterEl.textContent = `Trades today: ${tradeCount} / ${maxTrades}`;
+    tradeCounterEl.style.color = tradeCount >= maxTrades ? "red" : "black";
   }
 
-  // --- render history ---
+// --- confirm trade
+function onConfirmTrade() {
+  const qty = parseInt(quantityInput.value) || 0;
+  const itemName = itemSelect.value;
+  const country = countrySelect.value;
+  if (!qty || qty <= 0) { alert("Enter a valid quantity."); return; }
+  if (!itemName || !country) { alert("Choose item and country."); return; }
+
+  // ⬇️ New rule check
+  if (tradeCount >= maxTrades) {
+    alert("You have already traded 3 times today. Wait until the next day to trade again!");
+    return;
+  }
+
+  const list = tradeTypeEl.value === "import" ? importItems : exportItems;
+  const item = list.find(i => i.name === itemName);
+  const rateObj = exchangeRates[country];
+  const foreignTotal = item.basePrice * qty;
+  const rmTotal = parseFloat((foreignTotal / rateObj.rate).toFixed(2));
+
+  // imports deduct, exports add
+  if (tradeTypeEl.value === "import") {
+    if (rmTotal > balance) { alert("Not enough balance for this import."); return; }
+    balance -= rmTotal;
+  } else {
+    balance += rmTotal;
+  }
+
+  // save history row with inline color
+  const isProfit = tradeTypeEl.value === "export";
+  const sign = isProfit ? "+" : "-";
+  const cls = isProfit ? "profit" : "loss";
+  tradeHistoryHTML += `<tr class="trade-row"><td>${day}</td><td>${tradeTypeEl.value}</td><td>${itemName}</td>
+    <td>${country}</td><td>${qty}</td><td class="${cls}">${sign}RM ${rmTotal.toFixed(2)}</td></tr>`;
+
+  // persist and update visuals
+  balanceOverTime.push(balance);
+  localStorage.setItem("balance", balance.toString());
+  localStorage.setItem("tradeHistory", tradeHistoryHTML);
+  localStorage.setItem("balanceOverTime", JSON.stringify(balanceOverTime));
+
+  // ⬇️ Increment trade counter
+  tradeCount++;
+  localStorage.setItem("tradeCountForDay" + day, tradeCount.toString());
+  updateTradeCounter();
+
+  renderHistory();
+  renderChart();
+  updateCalc();
+  flashBalance();
+}
+
+
+  // --- render history
   function renderHistory() {
     if (!historyBody) return;
     historyBody.innerHTML = tradeHistoryHTML;
   }
 
-  // --- render chart ---
+  // --- render chart with Chart.js
   function renderChart() {
     if (!chartCanvas) return;
     const ctx = chartCanvas.getContext("2d");
@@ -265,6 +222,7 @@
       },
       options: { responsive: true, plugins: { legend: { display: false } } }
     });
+    // update displayed balance and day
     if (balanceDisplay) balanceDisplay.textContent = balance.toFixed(2);
     if (dayNumberEl) dayNumberEl.textContent = day.toString();
     updateProgressBar();
@@ -277,19 +235,21 @@
     setTimeout(()=> balanceDisplay.style.transform = '', 160);
   }
 
-  // --- show exchange rates ---
+  // --- show exchange rates table
   function toggleRatesTable() {
     if (!ratesContainer || !ratesTable) return;
     if (ratesContainer.style.display === "block") { ratesContainer.style.display = "none"; return; }
+    // rebuild table
     ratesTable.innerHTML = `<tr><th>Country</th><th>1 RM = ?</th><th>Sample item (foreign)</th><th>Price in RM</th></tr>`;
     const list = tradeTypeEl.value === "import" ? importItems : exportItems;
     countries.forEach(country => {
       const r = exchangeRates[country];
       list.forEach(item => {
-        const priceRM = (item.basePrice / r.rate).toFixed(2);
+        const priceForeign = item.basePrice;
+        const priceRM = (priceForeign / r.rate).toFixed(2);
         const tr = document.createElement("tr");
         tr.innerHTML = `<td>${country}</td><td>1 RM = ${r.rate} ${r.currency}</td>
-          <td>${item.name}: ${item.basePrice} ${r.currency}</td>
+          <td>${item.name}: ${priceForeign} ${r.currency}</td>
           <td>RM ${priceRM}</td>`;
         ratesTable.appendChild(tr);
       });
@@ -297,7 +257,7 @@
     ratesContainer.style.display = "block";
   }
 
-  // --- progress bar ---
+  // --- progress bar update
   function updateProgressBar() {
     if (!progressBar) return;
     const pct = Math.round((day / MAX_DAYS) * 100);
@@ -305,65 +265,32 @@
     if (progressText) progressText.textContent = `${day}`;
   }
 
-  // --- proceed to daily task ---
+  // --- proceed to daily task page
   function proceedToTask() {
+    // persist state and go to dailyTask.html
     localStorage.setItem("day", day.toString());
     localStorage.setItem("balance", balance.toString());
     localStorage.setItem("tradeHistory", tradeHistoryHTML);
     localStorage.setItem("balanceOverTime", JSON.stringify(balanceOverTime));
 
-    const chosen = JSON.parse(localStorage.getItem("chosenScenarios"));
-    const task = chosen ? chosen[day - 1] : null;
+    // reset trade counter for new day
+    tradeCount = 0;
+    localStorage.setItem("tradeCountForDay" + day, "0");
+    updateTradeCounter();
 
-    if (!task) {
-      alert("No task found. Proceeding to results.");
-      window.location.href = "results.html";
-      return;
-    }
-
-    const optionTexts = task.options.map((opt, i) => `${i+1}: ${opt.text}`).join("\n");
-    const choice = prompt(`Day ${day} Task:\n${task.scenario}\n\nOptions:\n${optionTexts}\n\nEnter 1, 2 or 3:`);
-
-    const index = parseInt(choice) - 1;
-    if (index < 0 || index >= task.options.length) {
-      alert("Invalid choice. Task skipped.");
-    } else {
-      const option = task.options[index];
-      balance += option.effect;
-      balanceOverTime.push(balance);
-
-      const color = option.effect >= 0 ? "profit" : "loss";
-      tradeHistoryHTML += `<tr class="task-row">
-        <td>${day}</td><td>Daily Task</td><td>${task.scenario}</td><td>-</td><td>-</td>
-        <td class="${color}">${option.effect >= 0 ? "+" : ""}RM ${option.effect}</td>
-      </tr>`;
-
-      localStorage.setItem("balance", balance.toString());
-      localStorage.setItem("tradeHistory", tradeHistoryHTML);
-      localStorage.setItem("balanceOverTime", JSON.stringify(balanceOverTime));
-
-      alert(option.message);
-    }
-
-    if (day >= MAX_DAYS) {
-      window.location.href = "results.html";
-    } else {
-      day++;
-      localStorage.setItem("day", day.toString());
-      renderChart();
-      renderHistory();
-      updateCalc();
-      alert(`Proceed to Day ${day} trading!`);
-    }
+    // ensure chosenScenarios seeded by task script if not present
+    window.location.href = "dailyTask.html";
   }
 
-  // --- reset game ---
+
+  // --- reset new game
   function resetGame() {
     if (!confirm("Start a new game? This will reset progress.")) return;
     day = 1;
     balance = 5000;
     tradeHistoryHTML = "";
     balanceOverTime = [balance];
+    // new exchange rates for day 1
     exchangeRates = createDailyExchangeRates();
     localStorage.clear();
     localStorage.setItem("exchangeRatesForDay1", JSON.stringify(exchangeRates));
@@ -372,19 +299,18 @@
     renderHistory();
     renderChart();
     updateCalc();
-    seedChosenTasks();
     alert("New game started. Good luck!");
   }
 
-  // --- toggle instructions ---
+  // --- toggle instructions box if present
   function toggleInstructions() {
-    const rulesBox = $("rulesBox");
+    const rulesBox = document.getElementById("rulesBox");
     if (!rulesBox) return;
     rulesBox.style.display = rulesBox.style.display === "block" ? "none" : "block";
     toggleRulesBtn.textContent = rulesBox.style.display === "block" ? "Hide Instructions" : "Show Instructions";
   }
 
-  // --- penguin tips ---
+  // --- penguin tips
   function showPenguinTip() {
     if (!penguinTip) return;
     const tips = [
@@ -397,16 +323,18 @@
     penguinTip.style.display = "block";
     setTimeout(()=> penguinTip.style.display = "none", 3500);
   }
+  
 
-  // --- initialize ---
+  // --- wire DOM events after load ---
   document.addEventListener("DOMContentLoaded", () => {
-    seedChosenTasks();
+    // init UI
     populateCountries();
     populateItems();
     renderHistory();
     renderChart();
     updateCalc();
 
+    // wire events
     if (tradeTypeEl) tradeTypeEl.addEventListener("change", populateItems);
     if (countrySelect) countrySelect.addEventListener("change", updateCalc);
     if (itemSelect) itemSelect.addEventListener("change", updateCalc);
@@ -418,10 +346,14 @@
     if (toggleRulesBtn) toggleRulesBtn.addEventListener("click", toggleInstructions);
     if (penguinImg) penguinImg.addEventListener("click", showPenguinTip);
 
+    // update top displays
     if (dayNumberEl) dayNumberEl.textContent = day;
     if (balanceDisplay) balanceDisplay.textContent = balance.toFixed(2);
     updateProgressBar();
+    updateTradeCounter();
   });
 
+  // expose small helpers for other pages if necessary
   window._trade = { updateCalc, onConfirmTrade, renderChart, renderHistory };
+
 })();
