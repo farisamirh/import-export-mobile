@@ -12,6 +12,8 @@
   let balance = parseFloat(localStorage.getItem("balance")) || 5000;
   let tradeHistoryHTML = localStorage.getItem("tradeHistory") || "";
   let balanceOverTime = JSON.parse(localStorage.getItem("balanceOverTime")) || [balance];
+  let tradeCount = parseInt(localStorage.getItem("tradeCountForDay" + day)) || 0;
+  const maxTrades = 3;
 
   // --- exchangeRates representation:
   // exchangeRates[country] = number of foreign currency units equal to 1 RM
@@ -55,10 +57,19 @@
   const toggleRulesBtn = $("toggleRulesBtn");
   const penguinImg = $("penguinImg");
   const penguinTip = $("penguinTip");
+  const tradeCounterEl = $("tradeCounter");
+
 
   // chart
   let chartInstance = null;
   const chartCanvas = $("balanceChart");
+
+  // --- update trade counter display ---
+  function updateTradeCounter() {
+  if (tradeCounterEl) {
+    tradeCounterEl.textContent = `Trades today: ${tradeCount} / ${maxTrades}`;
+  }
+}
 
   // --- utility: generate new daily exchange rates snapshot ---
   function createDailyExchangeRates() {
@@ -125,45 +136,65 @@
     return { foreignTotal, rmTotal, currency: rateObj.currency };
   }
 
-  // --- confirm trade
-  function onConfirmTrade() {
-    const qty = parseInt(quantityInput.value) || 0;
-    const itemName = itemSelect.value;
-    const country = countrySelect.value;
-    if (!qty || qty <= 0) { alert("Enter a valid quantity."); return; }
-    if (!itemName || !country) { alert("Choose item and country."); return; }
-
-    const list = tradeTypeEl.value === "import" ? importItems : exportItems;
-    const item = list.find(i => i.name === itemName);
-    const rateObj = exchangeRates[country];
-    const foreignTotal = item.basePrice * qty;
-    const rmTotal = parseFloat((foreignTotal / rateObj.rate).toFixed(2));
-
-    // imports deduct, exports add
-    if (tradeTypeEl.value === "import") {
-      if (rmTotal > balance) { alert("Not enough balance for this import."); return; }
-      balance -= rmTotal;
-    } else {
-      balance += rmTotal;
-    }
-
-    // save history row with inline color
-    const isProfit = tradeTypeEl.value === "export";
-    const sign = isProfit ? "+" : "-";
-    const cls = isProfit ? "profit" : "loss";
-    tradeHistoryHTML += `<tr class="trade-row"><td>${day}</td><td>${tradeTypeEl.value}</td><td>${itemName}</td>
-      <td>${country}</td><td>${qty}</td><td class="${cls}">${sign}RM ${rmTotal.toFixed(2)}</td></tr>`;
-
-    // persist and update visuals
-    balanceOverTime.push(balance);
-    localStorage.setItem("balance", balance.toString());
-    localStorage.setItem("tradeHistory", tradeHistoryHTML);
-    localStorage.setItem("balanceOverTime", JSON.stringify(balanceOverTime));
-    renderHistory();
-    renderChart();
-    updateCalc();
-    flashBalance();
+  // --- update trade counter display
+  function updateTradeCounter() {
+    if (!tradeCounterEl) return;
+    tradeCounterEl.textContent = `Trades today: ${tradeCount} / ${maxTrades}`;
+    tradeCounterEl.style.color = tradeCount >= maxTrades ? "red" : "black";
   }
+
+// --- confirm trade
+function onConfirmTrade() {
+  const qty = parseInt(quantityInput.value) || 0;
+  const itemName = itemSelect.value;
+  const country = countrySelect.value;
+  if (!qty || qty <= 0) { alert("Enter a valid quantity."); return; }
+  if (!itemName || !country) { alert("Choose item and country."); return; }
+
+  // ⬇️ New rule check
+  if (tradeCount >= maxTrades) {
+    alert("You have already traded 3 times today. Wait until the next day to trade again!");
+    return;
+  }
+
+  const list = tradeTypeEl.value === "import" ? importItems : exportItems;
+  const item = list.find(i => i.name === itemName);
+  const rateObj = exchangeRates[country];
+  const foreignTotal = item.basePrice * qty;
+  const rmTotal = parseFloat((foreignTotal / rateObj.rate).toFixed(2));
+
+  // imports deduct, exports add
+  if (tradeTypeEl.value === "import") {
+    if (rmTotal > balance) { alert("Not enough balance for this import."); return; }
+    balance -= rmTotal;
+  } else {
+    balance += rmTotal;
+  }
+
+  // save history row with inline color
+  const isProfit = tradeTypeEl.value === "export";
+  const sign = isProfit ? "+" : "-";
+  const cls = isProfit ? "profit" : "loss";
+  tradeHistoryHTML += `<tr class="trade-row"><td>${day}</td><td>${tradeTypeEl.value}</td><td>${itemName}</td>
+    <td>${country}</td><td>${qty}</td><td class="${cls}">${sign}RM ${rmTotal.toFixed(2)}</td></tr>`;
+
+  // persist and update visuals
+  balanceOverTime.push(balance);
+  localStorage.setItem("balance", balance.toString());
+  localStorage.setItem("tradeHistory", tradeHistoryHTML);
+  localStorage.setItem("balanceOverTime", JSON.stringify(balanceOverTime));
+
+  // ⬇️ Increment trade counter
+  tradeCount++;
+  localStorage.setItem("tradeCountForDay" + day, tradeCount.toString());
+  updateTradeCounter();
+
+  renderHistory();
+  renderChart();
+  updateCalc();
+  flashBalance();
+}
+
 
   // --- render history
   function renderHistory() {
@@ -241,9 +272,16 @@
     localStorage.setItem("balance", balance.toString());
     localStorage.setItem("tradeHistory", tradeHistoryHTML);
     localStorage.setItem("balanceOverTime", JSON.stringify(balanceOverTime));
+
+    // reset trade counter for new day
+    tradeCount = 0;
+    localStorage.setItem("tradeCountForDay" + day, "0");
+    updateTradeCounter();
+
     // ensure chosenScenarios seeded by task script if not present
     window.location.href = "dailyTask.html";
   }
+
 
   // --- reset new game
   function resetGame() {
@@ -285,6 +323,7 @@
     penguinTip.style.display = "block";
     setTimeout(()=> penguinTip.style.display = "none", 3500);
   }
+  
 
   // --- wire DOM events after load ---
   document.addEventListener("DOMContentLoaded", () => {
@@ -311,6 +350,7 @@
     if (dayNumberEl) dayNumberEl.textContent = day;
     if (balanceDisplay) balanceDisplay.textContent = balance.toFixed(2);
     updateProgressBar();
+    updateTradeCounter();
   });
 
   // expose small helpers for other pages if necessary
